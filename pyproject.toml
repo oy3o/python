@@ -1,0 +1,52 @@
+# pyproject.toml
+
+# PEP 518: Specify build system requirements
+[build-system]
+requires = ["setuptools>=61.0", "wheel"] # Common build dependencies
+build-backend = "setuptools.build_meta"  # Use setuptools as the build backend
+
+# PEP 621: Project metadata
+[project]
+name = "oy3o" # 包名，用户将用 pip install oy3o 安装
+version = "0.0.1" # 包版本 (PEP 440)，可以手动更新，或使用 setuptools_scm 等工具动态获取
+authors = [{ name = "oy3o", email = "python@oy3o.com" }]
+description = "oy3o 命名空间，包含一些子包" # 简短描述
+readme = "README.md" # 指向你的 README 文件
+requires-python = ">=3.8" # 指定支持的 Python 版本
+license = { file = "LICENSE" } # 指向你的 LICENSE 文件，或使用 {text = "MIT"} 等
+keywords = ["tui", "editor", "curses", "oy3o"] # PyPI 上的搜索关键词
+classifiers = [ # PyPI 分类器，帮助用户查找和了解包
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",                       # 根据你的 LICENSE 修改
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Terminals",
+    "Environment :: Console :: Curses",                             # 表明使用了 curses
+]
+
+# PEP 508: Specify dependencies
+dependencies = [
+    "pyperclip",         # for copy/paste
+    "wcwidth",           # for wide character width calculation
+    "tiktoken",          # for token counting
+    "numba",             # used in _.py
+    "deco",              # used in _.py
+    "typing-extensions", # used for Annotated etc.
+]
+
+# Optional: Project URLs shown on PyPI
+[project.urls]
+Homepage = "https://github.com/oy3o/python"
+Repository = "https://github.com/oy3o/python"
+
+# --- Tool Specific Configurations (Optional) ---
+# Example for setuptools to find the package in src/
+[tool.setuptools.packages.find]
+where = ["src"]
+
