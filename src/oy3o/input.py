@@ -1,35 +1,35 @@
 from typing import Callable
 from .terminal import curses
 
-CTRL = 1 << 25
-ALT  = 1 << 27
-MOVE = 1 << 28
+CTRL = curses.BUTTON_CTRL
+ALT = curses.BUTTON_ALT
+MOVE = curses.KEY_MOVE
 
-LEFT_UP             = 1<<0
-LEFT_DOWN           = 1<<1
-LEFT_CLICK          = 1<<2
-LEFT_DOUBLE         = 1<<3
-LEFT_THREE          = 1<<4
-MIDDLE_UP           = 1<<5
-MIDDLE_DOWN         = 1<<6
-MIDDLE_CLICK        = 1<<7
-MIDDLE_DOUBLE       = 1<<8
-MIDDLE_THREE        = 1<<9
-RIGHT_UP            = 1<<10
-RIGHT_DOWN          = 1<<11
-RIGHT_CLICK         = 1<<12
-RIGHT_DOUBLE        = 1<<13
-RIGHT_THREE         = 1<<14
-SCROLL_UP           = 1<<16
-SCROLL_DOWN         = 1<<21
+LEFT_UP = 1 << 0
+LEFT_DOWN = 1 << 1
+LEFT_CLICK = 1 << 2
+LEFT_DOUBLE = 1 << 3
+LEFT_THREE = 1 << 4
+MIDDLE_UP = 1 << 5
+MIDDLE_DOWN = 1 << 6
+MIDDLE_CLICK = 1 << 7
+MIDDLE_DOUBLE = 1 << 8
+MIDDLE_THREE = 1 << 9
+RIGHT_UP = 1 << 10
+RIGHT_DOWN = 1 << 11
+RIGHT_CLICK = 1 << 12
+RIGHT_DOUBLE = 1 << 13
+RIGHT_THREE = 1 << 14
+SCROLL_UP = 1 << 16
+SCROLL_DOWN = 1 << 21
 
 ESC = 27
 ENTER = 10
-BACKSPACE = 127
-DOWN = 258
-UP = 259
-LEFT = 260
-RIGHT = 261
+DOWN = curses.KEY_DOWN
+UP = curses.KEY_UP
+LEFT = curses.KEY_LEFT
+RIGHT = curses.KEY_RIGHT
+BACKSPACE = curses.KEY_BACKSPACE
 
 PLUS = 42
 ADD = 43
@@ -94,52 +94,68 @@ mouse_listeners = {}
 key_listeners = {}
 char_listeners = {}
 
+
 def onchar(event, listener):
     char_listeners.setdefault(event, []).append(listener)
+
 
 def offchar(event, listener):
     char_listeners[event].remove(listener)
 
+
 def onkey(event, listener):
-    if CTRL&event:
-        event = (event&127) - 64
+    if CTRL & event:
+        event = (event & 127) - 64
     key_listeners.setdefault(event, []).append(listener)
 
+
 def offkey(event, listener):
-    if CTRL&event:
-        event = (event&127) - 64
+    if CTRL & event:
+        event = (event & 127) - 64
     key_listeners[event].remove(listener)
+
 
 def onmouse(event, listener):
     mouse_listeners.setdefault(event, []).append(listener)
+
 
 def offmouse(event, listener):
     mouse_listeners[event].remove(listener)
 
 
 _listen = False
+
+
 def init():
-    curses.stdscr = curses.initscr() 
-    curses.stdscr.keypad(True) 
+    curses.stdscr = curses.initscr()
+    curses.stdscr.keypad(True)
     curses.noecho()
     curses.cbreak()
     curses.raw()
 
 
-def listen(button=curses.ALL_MOUSE_EVENTS,move=curses.REPORT_MOUSE_POSITION, excepted=[], before:Callable=None):
-    if getattr(curses,'stdscr', None) == None:
+def listen(
+    button=curses.ALL_MOUSE_EVENTS,
+    move=curses.REPORT_MOUSE_POSITION,
+    excepted=[],
+    before: Callable = None,
+):
+    if getattr(curses, "stdscr", None) == None:
         init()
 
     global _listen
     _listen = True
     curses.mousemask(button | move)
     if move:
-        print('\033[?1003h')
+        print("\033[?1003h")
+        curses.stdscr.refresh() # 确保转义码被发送
+
     while _listen:
-        if before: before()
+        if before:
+            before()
         wc = curses.stdscr.get_wch()
         if wc == curses.KEY_MOUSE:
-            _,x,y,_,key = curses.getmouse()
+            _, x, y, _, key = curses.getmouse()
             if key in mouse_listeners:
                 for listener in mouse_listeners[key]:
                     listener(y, x, key)
@@ -148,14 +164,19 @@ def listen(button=curses.ALL_MOUSE_EVENTS,move=curses.REPORT_MOUSE_POSITION, exc
             if key in key_listeners:
                 for listener in key_listeners[key]:
                     listener(wc)
-        if (wc in excepted) or ((type(wc) == str) and (((32 <= ord(wc)) and (ord(wc)<127)) or (ord(wc) >= 512))):
+        if (wc in excepted) or (
+            (type(wc) == str)
+            and (((32 <= ord(wc)) and (ord(wc) < 127)) or (ord(wc) >= 512))
+        ):
             if wc in char_listeners:
                 for listener in char_listeners[wc]:
                     listener(wc)
             yield wc
+
     curses.mousemask(0)
     if move:
-        print('\033[?1003l')
+        print("\033[?1003l")
+
 
 def stop():
     global _listen

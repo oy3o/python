@@ -1,6 +1,6 @@
 # oy3o
 
-[![PyPI version](https://badge.fury.io/py/oy3o.svg)](https://badge.fury.io/py/oy3o) <!-- Replace with your PyPI link after publishing -->
+[![PyPI version](https://badge.fury.io/py/oy3o.svg)](https://badge.fury.io/py/oy3o)
 [中文版 README (Chinese README)](README.zh-CN.md)
 
 A Python library for building Text User Interfaces (TUIs), providing interactive components based on `curses`, such as a multi-line text editor and flexible input handling.
@@ -39,19 +39,9 @@ Here's a simple example demonstrating how to start a basic `oy3o` editor in the 
 
 ```python
 import curses
-from oy3o.editor import Editor # Assuming __init__ exposes Editor
+from oy3o.editor import Editor
 
 def main(stdscr):
-    # Basic curses setup
-    curses.curs_set(1) # Show cursor
-    stdscr.keypad(True) # Enable special keys (like arrows)
-    curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION) # Enable mouse events
-    curses.mouseinterval(0) # Report mouse events immediately
-    stdscr.clear()     # Clear screen
-
-    # Get screen dimensions
-    height, width = stdscr.getmaxyx()
-
     # Create Editor instance
     # Editor draws and manages its area within the given window
     # based on top/bottom/left/right margins.
@@ -98,77 +88,48 @@ if __name__ == "__main__":
 The `oy3o.input` module provides lower-level access to handle keyboard and mouse input.
 
 ```python
-import curses
-from oy3o import input as oy3o_input # Import the input module
+from oy3o import input
 
-def main(stdscr):
-    # --- Crucial Curses Setup for input module ---
-    curses.curs_set(0)  # Usually hide cursor unless needed
-    stdscr.keypad(True) # MUST be enabled for special keys (Arrows, F*, etc.)
-    curses.noecho()     # Prevent keys from echoing automatically
-    curses.cbreak()     # Get keys immediately, without waiting for Enter
-    # If mouse events are needed:
-    curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
-    curses.mouseinterval(0) # Report mouse events immediately
-    # Enable Xterm mouse move reporting (if terminal supports it)
-    print('\033[?1003h', end='')
-    stdscr.refresh() # Ensure the escape code is sent
+input.onkey(input.CTRL + input.A, lambda _:print('CTRL + A'))
 
-    stdscr.clear()
-    stdscr.addstr(1, 0, "oy3o Input Demo. Press 'q' to quit.")
-    stdscr.addstr(2, 0, "Try pressing Ctrl+A, Arrow Keys, Enter, Backspace.")
-    stdscr.addstr(3, 0, "Try scrolling or moving the mouse (with/without Ctrl+Alt).")
-    stdscr.addstr(4, 0, "Try typing 😊 or 💕.")
-    stdscr.refresh()
+input.onkey(input.DOWN, lambda _:print('ARROW DOWN'))
+input.onkey(input.UP, lambda _:print('ARROW UP'))
+input.onkey(input.LEFT, lambda _:print('ARROW LEFT'))
+input.onkey(input.RIGHT, lambda _:print('ARROW RIGHT'))
 
-    # --- Event Bindings ---
-    oy3o_input.onkey(oy3o_input.CTRL + 'a', lambda _: stdscr.addstr(6, 0, "Detected: CTRL + A ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.DOWN, lambda _: stdscr.addstr(7, 0, "Detected: ARROW DOWN ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.UP, lambda _: stdscr.addstr(8, 0, "Detected: ARROW UP   ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.LEFT, lambda _: stdscr.addstr(9, 0, "Detected: ARROW LEFT ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.RIGHT, lambda _: stdscr.addstr(10, 0, "Detected: ARROW RIGHT".ljust(30)))
-    oy3o_input.onkey(oy3o_input.ENTER, lambda _: stdscr.addstr(11, 0, "Detected: ENTER      ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.BACKSPACE, lambda _: stdscr.addstr(12, 0, "Detected: BACKSPACE  ".ljust(30)))
+input.onkey(input.ENTER, lambda _:print('ENTER'))
+input.onkey(input.BACKSPACE, lambda _:print('BACKSPACE'))
 
-    oy3o_input.onmouse(oy3o_input.SCROLL_DOWN, lambda *_: stdscr.addstr(13, 0, "Detected: SCROLL DOWN".ljust(30)))
-    oy3o_input.onmouse(oy3o_input.SCROLL_UP, lambda *_: stdscr.addstr(14, 0, "Detected: SCROLL UP  ".ljust(30)))
+input.onmouse(input.SCROLL_DOWN, lambda *_:print('SCROLL DOWN'))
+input.onmouse(input.SCROLL_UP, lambda *_:print('SCROLL UP'))
 
-    def show_mouse_pos(y, x, type_key):
-        type_str = f"Type: {type_key!r}" # Display the internal key representation
-        stdscr.addstr(15, 0, f"Mouse Move: ({y},{x}) {type_str}".ljust(40))
-        stdscr.refresh()
+input.onchar('😊', lambda _:print(':smile:'))
+input.onchar('💕', lambda _:print(':love:'))
 
-    # Normal move
-    oy3o_input.onmouse(oy3o_input.MOVE, show_mouse_pos)
-    # Move with modifiers (Ctrl+Alt)
-    oy3o_input.onmouse(oy3o_input.CTRL + oy3o_input.ALT + oy3o_input.MOVE, show_mouse_pos)
+for wc in input.listen(move=0):
+    if wc == 'q':
+        input.stop()
+    print(wc)
+```
 
-    # Handle specific characters (like Emoji)
-    oy3o_input.onchar('😊', lambda _: stdscr.addstr(16, 0, "Detected: :smile:     ".ljust(30)))
-    oy3o_input.onchar('💕', lambda _: stdscr.addstr(17, 0, "Detected: :love:      ".ljust(30)))
+`input.ALT` is mouse only, because `ALT + Key` always is system shortcut.
+```py
+from oy3o.terminal import curses
+import oy3o.input as input
 
-    # --- Main Event Loop ---
-    # listen() blocks and yields key/mouse events
-    # `move=1` (default) includes MOVE events. `move=0` excludes them.
-    # Pass stdscr so `listen` can use its getch method.
-    for event in oy3o_input.listen(stdscr, move=1):
-        # You can handle events here not caught by onkey/onmouse/onchar
-        # event can be a character, special key constant, or mouse tuple/constant
-        stdscr.addstr(19, 0, f"Raw Event: {event!r}".ljust(40))
-        stdscr.refresh()
+input.init()
+screen = curses.stdscr
 
-        if event == 'q':
-            oy3o_input.stop() # Stop the listen() loop
+def pos(y,x,type):
+    screen.addstr(0, 0, f'({y},{x})')
+    screen.clrtoeol()
+    screen.refresh()
 
-    # --- Cleanup (before wrapper exits) ---
-    # Disable Xterm mouse reporting
-    print('\033[?1003l', end='')
-    # Optional: short sleep allows terminal to process escape code before restoring
-    curses.napms(50)
+input.onmouse(input.ALT + input.MOVE, pos)
 
-if __name__ == "__main__":
-    curses.wrapper(main)
-    print("\nInput demo finished.")
+for wc in input.listen(screen):
+    if wc == 'q':
+        input.stop()
 ```
 
 ## Utilities (`oy3o`)
@@ -198,7 +159,7 @@ Key components include:
 
 ### Helper Functions & Constants
 
-*   Includes type checkers (`isIterable`, `isAsync`, etc.), `setdefault`, a unique `undefined` sentinel, and Numba type aliases.
+*   Includes type checkers (`isIterable`, `isAsync`, etc.), a unique `undefined` sentinel, and Numba type aliases.
 
 *(Refer to the source code in `src/oy3o/_.py` for detailed implementations and docstrings.)*
 

@@ -53,14 +53,12 @@ class undefined:
     def __bool__(self):
         return False
 
-
 def setdefault(o: object, name, default):
     value = getattr(o, name, undefined)
     if value == undefined:
         object.__setattr__(o, name, default)
         return default
     return value
-
 
 def isIterable(o):
     return isinstance(o, Iterable)
@@ -303,7 +301,8 @@ class subscribe(Generic[T]):
             @wraps(klass.__init__)
             def __init__(self, *args, **kwds):
                 super().__init__(*args, **kwds)
-                self.eventshub = getattr(self, "eventshub", eventshub if single else {})
+                if not self.eventshub:
+                    self.eventshub = eventshub if single else {}
 
             def trigger(self, event: str, *args):
                 """

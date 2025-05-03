@@ -95,6 +95,7 @@ class InputBox:
     outline: int = 0
     editable: bool = True
     stop: int = input.ENTER
+    eventshub = {}
 
     def edit(self, text=None, editable=None):
         self.trigger("edit")
@@ -228,13 +229,17 @@ class InputBox:
         self.view.move(self.text_curs_y, self.text_curs_x)
         self.view.refresh()
 
-        for wc in input.listen(move=0, before=self.curs_fix):
-            self.input(wc)
-
-        # exit input
-        self.view.erase()
-        self.view.refresh()
-        curses.resetty()
+        self.returnvalue = None
+        try:
+            for wc in input.listen(move=0, before=self.curs_fix):
+                self.input(wc)
+        except Exception as e:
+            pass
+        finally:
+            # exit input
+            self.view.erase()
+            self.view.refresh()
+            curses.resetty()
 
         # unregister key
         if type(self.stop) == int:
@@ -627,6 +632,7 @@ class InputBox:
         if not self.editable:
             return self.curs_fix()
         self.update("", write=False)
+        self.curs_to(0, 0, True)
         self.render()
 
     def undo(self, *args):

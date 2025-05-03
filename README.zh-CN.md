@@ -1,6 +1,6 @@
 # oy3o
 
-[![PyPI version](https://badge.fury.io/py/oy3o.svg)](https://badge.fury.io/py/oy3o) <!-- 发布后替换为你的 PyPI 链接 -->
+[![PyPI version](https://badge.fury.io/py/oy3o.svg)](https://badge.fury.io/py/oy3o)
 [English README (英文版 README)](README.md)
 
 一个用于构建文本用户界面 (TUI) 的 Python 库，提供基于 `curses` 的交互式组件（例如多行文本编辑器）和灵活的输入处理。
@@ -42,16 +42,6 @@ import curses
 from oy3o.editor import Editor
 
 def main(stdscr):
-    # 基本的 curses 设置
-    curses.curs_set(1) # 显示光标
-    stdscr.keypad(True) # 启用特殊键 (如箭头)
-    curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION) # 开启鼠标事件监听
-    curses.mouseinterval(0) # 立即报告鼠标事件
-    stdscr.clear()     # 清屏
-
-    # 获取屏幕尺寸
-    height, width = stdscr.getmaxyx()
-
     # 创建 Editor 实例
     # Editor 在给定的 window 内根据 top/bottom/left/right 绘制和管理其区域
     editor = Editor(
@@ -98,79 +88,48 @@ if __name__ == "__main__":
 `oy3o.input` 模块提供了更底层的接口来处理键盘和鼠标输入。
 
 ```python
-import curses
-# 导入 input 模块
-from oy3o import input as oy3o_input
+from oy3o import input
 
-def main(stdscr):
-    # --- 对 input 模块至关重要的 Curses 设置 ---
-    curses.curs_set(0)  # 通常隐藏光标，除非你的应用需要
-    stdscr.keypad(True) # 必须开启才能获取特殊键 (箭头, F*, etc.)
-    curses.noecho()     # 禁止自动打印按键到屏幕
-    curses.cbreak()     # 立即获取按键，不需要等回车
-    # 如果需要鼠标事件:
-    curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
-    curses.mouseinterval(0) # 立即报告鼠标事件
-    # 开启 Xterm 鼠标移动报告 (如果终端支持)
-    print('\033[?1003h', end='')
-    stdscr.refresh() # 确保转义码被发送
+input.onkey(input.CTRL + input.A, lambda _:print('CTRL + A'))
 
-    stdscr.clear()
-    stdscr.addstr(1, 0, "oy3o 输入演示. 按 'q' 退出.")
-    stdscr.addstr(2, 0, "尝试按 Ctrl+A, 方向键, 回车, 退格.")
-    stdscr.addstr(3, 0, "尝试滚动或移动鼠标 (带/不带 Ctrl+Alt).")
-    stdscr.addstr(4, 0, "尝试输入 😊 或 💕.")
-    stdscr.refresh()
+input.onkey(input.DOWN, lambda _:print('ARROW DOWN'))
+input.onkey(input.UP, lambda _:print('ARROW UP'))
+input.onkey(input.LEFT, lambda _:print('ARROW LEFT'))
+input.onkey(input.RIGHT, lambda _:print('ARROW RIGHT'))
 
-    # --- 事件绑定 ---
-    oy3o_input.onkey(oy3o_input.CTRL + 'a', lambda _: stdscr.addstr(6, 0, "检测到: CTRL + A ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.DOWN, lambda _: stdscr.addstr(7, 0, "检测到: ARROW DOWN ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.UP, lambda _: stdscr.addstr(8, 0, "检测到: ARROW UP   ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.LEFT, lambda _: stdscr.addstr(9, 0, "检测到: ARROW LEFT ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.RIGHT, lambda _: stdscr.addstr(10, 0, "检测到: ARROW RIGHT".ljust(30)))
-    oy3o_input.onkey(oy3o_input.ENTER, lambda _: stdscr.addstr(11, 0, "检测到: ENTER      ".ljust(30)))
-    oy3o_input.onkey(oy3o_input.BACKSPACE, lambda _: stdscr.addstr(12, 0, "检测到: BACKSPACE  ".ljust(30)))
+input.onkey(input.ENTER, lambda _:print('ENTER'))
+input.onkey(input.BACKSPACE, lambda _:print('BACKSPACE'))
 
-    oy3o_input.onmouse(oy3o_input.SCROLL_DOWN, lambda *_: stdscr.addstr(13, 0, "检测到: SCROLL DOWN".ljust(30)))
-    oy3o_input.onmouse(oy3o_input.SCROLL_UP, lambda *_: stdscr.addstr(14, 0, "检测到: SCROLL UP  ".ljust(30)))
+input.onmouse(input.SCROLL_DOWN, lambda *_:print('SCROLL DOWN'))
+input.onmouse(input.SCROLL_UP, lambda *_:print('SCROLL UP'))
 
-    def show_mouse_pos(y, x, type_key):
-        type_str = f"类型: {type_key!r}" # 显示内部键表示
-        stdscr.addstr(15, 0, f"鼠标移动: ({y},{x}) {type_str}".ljust(40))
-        stdscr.refresh()
+input.onchar('😊', lambda _:print(':smile:'))
+input.onchar('💕', lambda _:print(':love:'))
 
-    # 普通移动
-    oy3o_input.onmouse(oy3o_input.MOVE, show_mouse_pos)
-    # 带修饰键的移动 (Ctrl+Alt)
-    oy3o_input.onmouse(oy3o_input.CTRL + oy3o_input.ALT + oy3o_input.MOVE, show_mouse_pos)
+for wc in input.listen(move=0):
+    if wc == 'q':
+        input.stop()
+    print(wc)
+```
 
-    # 处理特定字符 (如 Emoji)
-    oy3o_input.onchar('😊', lambda _: stdscr.addstr(16, 0, "检测到: :smile:     ".ljust(30)))
-    oy3o_input.onchar('💕', lambda _: stdscr.addstr(17, 0, "检测到: :love:      ".ljust(30)))
+`input.ALT` 是仅鼠标可用的, 因为 `ALT + Key` 总是会响应系统快捷键.
+```py
+from oy3o.terminal import curses
+import oy3o.input as input
 
-    # --- 主事件循环 ---
-    # listen() 会阻塞并产生按键/鼠标事件
-    # `move=1` (默认) 包含 MOVE 事件。 `move=0` 排除它们。
-    # 传入 stdscr 以便 `listen` 使用其 getch 方法。
-    for event in oy3o_input.listen(stdscr, move=1):
-        # 你可以在这里处理未被 onkey/onmouse/onchar 捕获的事件
-        # event 可以是字符、特殊键常量或鼠标元组/常量
-        stdscr.addstr(19, 0, f"原始事件: {event!r}".ljust(40))
-        stdscr.refresh()
+input.init()
+screen = curses.stdscr
 
-        if event == 'q':
-            oy3o_input.stop() # 停止 listen() 循环
+def pos(y,x,type):
+    screen.addstr(0, 0, f'({y},{x})')
+    screen.clrtoeol()
+    screen.refresh()
 
-    # --- 清理 (在 wrapper 退出前) ---
-    # 关闭 Xterm 鼠标报告
-    print('\033[?1003l', end='')
-    # 可选：短暂休眠让终端处理转义码
-    curses.napms(50)
+input.onmouse(input.ALT + input.MOVE, pos)
 
-
-if __name__ == "__main__":
-    curses.wrapper(main)
-    print("\n输入演示结束。")
+for wc in input.listen(screen):
+    if wc == 'q':
+        input.stop()
 ```
 
 ## 实用工具 (`oy3o`)
@@ -200,7 +159,7 @@ from oy3o import Task, Timer, throttle, debounce, subscribe, members, template #
 
 ### 辅助函数与常量 (Helper Functions & Constants)
 
-*   包括类型检查器 (`isIterable`, `isAsync` 等)、`setdefault`、一个唯一的 `undefined` 哨兵对象，以及 Numba 类型别名。
+*   包括类型检查器 (`isIterable`, `isAsync` 等)、一个唯一的 `undefined` 哨兵对象，以及 Numba 类型别名。
 
 *(有关详细实现和文档字符串，请参阅 `src/oy3o/_.py` 中的源代码。)*
 
