@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"  # Use setuptools as the build backend
 # PEP 621: Project metadata
 [project]
 name = "oy3o" # 包名，用户将用 pip install oy3o 安装
-version = "0.0.2" # 包版本 (PEP 440)，可以手动更新，或使用 setuptools_scm 等工具动态获取
+version = "0.2.0" # 包版本 (PEP 440)，可以手动更新，或使用 setuptools_scm 等工具动态获取
 authors = [{ name = "oy3o", email = "python@oy3o.com" }]
 description = "oy3o 命名空间，包含一些子包" # 简短描述
 readme = "README.md" # 指向你的 README 文件
