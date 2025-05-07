@@ -1,67 +1,9 @@
-import threading
 import pyperclip
-import wcwidth
 import tiktoken
 from .._ import *
+from .. import string
 from ..terminal import curses
 from .. import input
-
-
-def string_width(text):
-    """
-    Return the width of a string in terminal columns.
-    """
-    if not text:
-        return 0
-    return wcwidth.wcswidth(text)
-
-
-def string_width_fits(text, width):
-    """
-    Return a truncated version of a string that fits in a given width.
-    """
-    if string_width(text) > width:
-        return split_bywidth(text, width - 3)[0] + "..."
-    return text
-
-
-def split_bywidth(str: str, width: int):
-    """
-    Split a string into a list of substrings that have the same or less width.
-    """
-    list = []
-    chunk = ""
-    count = 0
-    for c in str:
-        cw = wcwidth.wcwidth(c)
-        if count + cw > width:
-            list.append(chunk)
-            chunk = c
-            count = cw
-        else:
-            chunk += c
-            count += cw
-    if chunk:
-        list.append(chunk)
-    if not list or count == width:
-        list.append("")
-    return list
-
-
-def split_bywidth_strings(lines: list[str], width: int, a: int = None, b: int = None):
-    """
-    Split a list of strings into a list of tuples containing substrings, line index and fragment index.
-    """
-    result = []
-    a = 0 if a == None else max(0, min(a, len(lines)))
-    b = len(lines) if b == None else min(b, len(lines))
-    for i in range(a, b):
-        line = lines[i]
-        fragments = split_bywidth(line, width)
-        for j in range(len(fragments)):
-            text = fragments[j]
-            result.append((text, i, j))
-    return result
 
 
 help = """      shortcut    │      description
@@ -95,7 +37,6 @@ class InputBox:
     outline: int = 0
     editable: bool = True
     stop: int = input.ENTER
-    eventshub = {}
 
     def edit(self, text=None, editable=None):
         self.trigger("edit")
@@ -154,7 +95,7 @@ class InputBox:
         self.text_view_offset = self.text_curs_y
         self.inline_offset_cur = 0
         self.inline_offset_max = len(
-            split_bywidth(self.text_lines[self.text_view_offset], self.text_view_width)
+            string.lineview(self.text_lines[self.text_view_offset], self.text_view_width)
         )
         self.rendered = None
         self.buffer = [("", 0, 0)]
@@ -231,7 +172,7 @@ class InputBox:
 
         self.returnvalue = None
         try:
-            for wc in input.listen(move=0, before=self.curs_fix):
+            for wc in input.listen(move=0):
                 self.input(wc)
         except Exception as e:
             pass
@@ -291,7 +232,7 @@ class InputBox:
         if self.inline_offset_cur < 0:
             if self.text_view_offset > 0:
                 self.text_view_offset -= 1
-                preline = split_bywidth(
+                preline = string.lineview(
                     self.text_lines[self.text_view_offset], self.text_view_width
                 )
                 self.inline_offset_max = len(preline)
@@ -305,13 +246,13 @@ class InputBox:
             if (
                 last_fragment[2] + 1
                 < len(
-                    split_bywidth(
+                    string.lineview(
                         self.text_lines[last_fragment[1]], self.text_view_width
                     )
                 )
             ) or (last_fragment[1] + 1 < len(self.text_lines)):
                 self.text_view_offset += 1
-                nextline = split_bywidth(
+                nextline = string.lineview(
                     self.text_lines[self.text_view_offset], self.text_view_width
                 )
                 self.inline_offset_max = len(nextline)
@@ -332,7 +273,7 @@ class InputBox:
         preload_end = min(
             len(self.text_lines), self.text_view_offset + self.text_view_height
         )
-        preload = split_bywidth_strings(
+        preload = string.linesview(
             self.text_lines, self.text_view_width, self.text_view_offset, preload_end
         )
         buffer_end = min(len(preload), self.inline_offset_cur + self.text_view_height)
@@ -436,14 +377,14 @@ class InputBox:
                     else ["", 0, 0]
                 )
                 self.screen_curs_x = min(
-                    x - self.__screen_curs_base_x, string_width(fragment[0])
+                    x - self.__screen_curs_base_x, string.width(fragment[0])
                 )
-                curs_string = split_bywidth(fragment[0], self.screen_curs_x)[0]
-                self.screen_curs_x = string_width(curs_string)
+                curs_string = string.lineview(fragment[0], self.screen_curs_x)[0]
+                self.screen_curs_x = string.width(curs_string)
                 self.text_curs_y = fragment[1]
                 self.text_curs_x = sum(
                     len(str)
-                    for str in split_bywidth(
+                    for str in string.lineview(
                         self.text_lines[fragment[1]], self.text_view_width
                     )[: fragment[2]]
                 ) + len(curs_string)
@@ -453,11 +394,11 @@ class InputBox:
             return self.curs_fix()
 
     def curs_x_from_screen(self, inline_offset: int):
-        line = split_bywidth(self.text_lines[self.text_curs_y], self.text_view_width)
-        inline_x = split_bywidth(line[inline_offset], self.screen_curs_x)[0]
+        line = string.lineview(self.text_lines[self.text_curs_y], self.text_view_width)
+        inline_x = string.lineview(line[inline_offset], self.screen_curs_x)[0]
         return (
             sum(len(str) for str in line[:inline_offset]) + len(inline_x),
-            string_width(inline_x),
+            string.width(inline_x),
         )
 
     def curs_to_start(self, *args, render=True):
@@ -475,7 +416,7 @@ class InputBox:
                 self.buffer[self.screen_curs_y][2]
             )
         elif self.buffer[-1][2] + 1 < len(
-            split_bywidth(self.text_lines[self.buffer[-1][1]], self.text_view_width)
+            string.lineview(self.text_lines[self.buffer[-1][1]], self.text_view_width)
         ):
             self.text_curs_y = self.buffer[-1][1]
             (self.text_curs_x, self.screen_curs_x) = self.curs_x_from_screen(
@@ -521,25 +462,25 @@ class InputBox:
         if (self.text_curs_x > 0) or (self.text_curs_y > 0):
             if self.text_curs_x > 0:
                 self.text_curs_x -= 1
-                self.screen_curs_x -= string_width(
+                self.screen_curs_x -= string.width(
                     self.text_lines[self.text_curs_y][self.text_curs_x]
                 )
                 if self.screen_curs_x < 0:
                     self.screen_curs_y -= 1
                     if self.screen_curs_y >= 0:
-                        self.screen_curs_x += string_width(
+                        self.screen_curs_x += string.width(
                             self.buffer[self.screen_curs_y][0]
                         )
                     else:
-                        self.screen_curs_x += string_width(
+                        self.screen_curs_x += string.width(
                             self.text_lines[self.buffer[0][1]][self.buffer[0][2] - 1]
                         )
                         self.inline_offset_cur -= 1
             else:
                 self.text_curs_y -= 1
                 self.text_curs_x = len(self.text_lines[self.text_curs_y])
-                self.screen_curs_x = string_width(
-                    split_bywidth(
+                self.screen_curs_x = string.width(
+                    string.lineview(
                         self.text_lines[self.text_curs_y], self.text_view_width
                     )[-1]
                 )
@@ -557,12 +498,12 @@ class InputBox:
             self.text_curs_y + 1 < len(self.text_lines)
         ):
             if self.text_curs_x < len(self.text_lines[self.text_curs_y]):
-                self.screen_curs_x += string_width(
+                self.screen_curs_x += string.width(
                     self.text_lines[self.text_curs_y][self.text_curs_x]
                 )
                 self.text_curs_x += 1
                 if self.screen_curs_x > self.text_view_width:
-                    self.screen_curs_x -= string_width(
+                    self.screen_curs_x -= string.width(
                         self.buffer[self.screen_curs_y][0]
                     )
                     self.screen_curs_y += 1
@@ -583,9 +524,9 @@ class InputBox:
         self.text_curs_x = x
         self.text_view_offset = y
         self.inline_offset_cur = 0
-        line = split_bywidth(self.text_lines[y][:x], self.text_view_width)
+        line = string.lineview(self.text_lines[y][:x], self.text_view_width)
         self.screen_curs_y = len(line) - 1
-        self.screen_curs_x = string_width(line[-1]) % self.text_view_width
+        self.screen_curs_x = string.width(line[-1]) % self.text_view_width
         if render:
             self.render()
 
@@ -711,7 +652,7 @@ class InputBox:
             screen_curs_x,
         ):
             length = len(self.text_lines)
-            fragments = split_bywidth_strings(
+            fragments = string.linesview(
                 self.text_lines,
                 self.text_view_width,
                 max(0, length - self.text_view_height),
@@ -721,7 +662,7 @@ class InputBox:
             (_, __offset, __line_offset) = buffer[0]
             self.buffer = buffer
         else:
-            fragments = split_bywidth_strings(
+            fragments = string.linesview(
                 self.text_lines,
                 self.text_view_width,
                 text_view_offset,
@@ -736,14 +677,14 @@ class InputBox:
             __offset if text_view_offset is None else text_view_offset
         )
         self.inline_offset_max = inline_offset_max or len(
-            split_bywidth(self.text_lines[self.text_view_offset], self.text_view_width)
+            string.lineview(self.text_lines[self.text_view_offset], self.text_view_width)
         )
         self.inline_offset_cur = (
             __line_offset if inline_offset_cur is None else inline_offset_cur
         )
         self.screen_curs_y = len(buffer) - 1 if screen_curs_y is None else screen_curs_y
         self.screen_curs_x = (
-            string_width(buffer[-1][0]) if screen_curs_x is None else screen_curs_x
+            string.width(buffer[-1][0]) if screen_curs_x is None else screen_curs_x
         )
         self.rendered = False
 

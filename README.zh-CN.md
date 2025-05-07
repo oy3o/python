@@ -3,16 +3,20 @@
 [![PyPI version](https://badge.fury.io/py/oy3o.svg)](https://badge.fury.io/py/oy3o)
 [English README (英文版 README)](README.md)
 
-一个用于构建文本用户界面 (TUI) 的 Python 库，提供基于 `curses` 的交互式组件（例如多行文本编辑器）和灵活的输入处理。
+一个用于构建文本用户界面 (TUI) 的 Python 库，提供基于 `curses` 的交互式组件（例如多行文本编辑器、可滚动列表视图）和灵活的输入处理。
 
 **注意:** 这个库依赖于 Python 的 `curses` 模块，该模块在类 Unix 系统 (Linux, macOS) 上通常是标准库的一部分，但在 Windows 上默认不可用。Windows 用户可能需要安装 `windows-curses` 包 (`pip install windows-curses`)，但兼容性可能需要进一步测试。
 
 ## 特性 (Features)
 
 *   **交互式组件:**
-    *   基于 `curses` 的可编辑文本框/编辑器 (`Editor`)。
-    *   支持基本的文本导航 (上下左右，行首行尾)。
-    *   支持文本换行和视图滚动。
+    *   基于 `curses` 的可编辑文本框/编辑器 (`oy3o.editor.Editor`)。
+        *   支持基本的文本导航 (上下左右，行首行尾)。
+        *   支持文本换行和视图滚动。
+    *   可滚动的列表视图 (`oy3o.flow.View`)。
+        *   显示 `oy3o.list.List` 的内容。
+        *   支持键盘和鼠标滚轮滚动。
+        *   自动滚动到新添加的条目。
 *   **高级输入处理 (`oy3o.input`):**
     *   监听并响应单个按键，包括修饰键 (Ctrl)。
     *   处理特殊键（方向键、回车、退格等）。
@@ -20,6 +24,8 @@
     *   通过 `onkey`, `onmouse`, `onchar` 将函数绑定到特定的按键、鼠标或字符事件。
     *   提供主输入循环 (`listen()`) 来处理事件流。
     *   **注意:** `input.ALT` 目前主要用于鼠标事件，因为 Alt + 字母键 通常会被操作系统或终端拦截。
+*   **数据结构 (`oy3o.list`):**
+    *   `List`: 一个可观察的列表，当其内容更改时可以触发事件，与 `Flow` 和 `View` 等组件集成。
 *   **宽字符支持:** 集成了 `wcwidth` 以正确处理宽字符（例如 CJK 字符）。
 *   **实用工具 (`oy3o._`):** 包含一些实用的工具和装饰器，如事件订阅 (`@subscribe`)、节流 (`@throttle`)、防抖 (`@debounce`)、任务管理 (`Task`, `Timer`)、元编程助手 (`@members`, `@template`, `Proxy`) 等。(详见下文)。
 *   **Token 计数:** 集成了 `tiktoken` 用于 token 计数。
@@ -32,6 +38,22 @@
 ```bash
 pip install oy3o
 ```
+
+## 模块化运行 (Command-Line Piping)
+
+`oy3o` 的一些模块可以直接通过 `python -m` 从命令行运行，并支持从标准输入管道输入内容：
+
+*   **编辑器 (`oy3o.editor`):**
+    ```bash
+    cat some_file.txt | python -m oy3o.editor
+    ```
+    这会将 `some_file.txt` 的内容加载到编辑器中。编辑完成后，按 `Ctrl+D` 保存并退出，内容将打印到标准输出；按 `Esc` 取消。
+
+*   **流视图 (`oy3o.flow`):**
+    ```bash
+    cat some_file.txt | python -m oy3o.flow
+    ```
+    这会将 `some_file.txt` 的每一行作为列表项显示在可滚动的流视图中。按 `q` 退出。
 
 ## 基本用法 - 编辑器 (`oy3o.editor`)
 
@@ -83,6 +105,57 @@ if __name__ == "__main__":
 
 ```
 
+## 基本用法 - 流视图 (`oy3o.flow`)
+
+`oy3o.flow.View` 类可以将 `oy3o.list.List` 的内容显示在一个可滚动的 `curses` 窗口中。
+
+```python
+import curses
+from oy3o import input
+from oy3o.list import List
+from oy3o.flow import View
+import time # 用于演示动态添加内容
+
+def main(stdscr):
+    curses.curs_set(0) # 隐藏光标
+    stdscr.nodelay(True) # 非阻塞输入
+
+    # 创建一个 List 实例
+    data_list = List([f"初始行 {i}" for i in range(20)])
+
+    # 在 stdscr 中创建一个 View
+    # y, x, height, width 定义了 View 在 stdscr 内的区域
+    # 使用 with 语句确保资源被正确清理
+    with View(data_list, stdscr, y=1, x=1, height=curses.LINES - 2, width=curses.COLS - 2) as view:
+        stdscr.addstr(0, 1, "oy3o 流视图示例 - 按 'q' 退出, 'a' 添加行, 滚轮滚动")
+        stdscr.refresh()
+
+        # 启动输入监听
+        # view.listen() 会处理鼠标滚动等内部事件
+        # input.listen() 是外部事件循环
+        counter = 20
+        for wc in input.listen(stdscr, delay=0.05): # delay 减少 CPU 占用
+            if wc == 'q':
+                input.stop() # 停止 input.listen() 循环
+                break
+            elif wc == 'a':
+                data_list.append(f"新添加的行 {counter}")
+                counter += 1
+            # view.render() 会在 data_list 更新时自动调用 (通过订阅)
+            # 如果需要手动刷新或处理其他逻辑，可以在这里添加
+
+            # 模拟外部数据更新
+            # if time.time() % 5 < 0.05: # 大约每5秒添加一次
+            #     data_list.append(f"定时添加的行 {counter}")
+            #     counter += 1
+    
+    # curses.wrapper 会处理 curses.endwin()
+
+if __name__ == "__main__":
+    curses.wrapper(main)
+    print("流视图已关闭。")
+```
+
 ## 进阶用法 - 输入处理 (`oy3o.input`)
 
 `oy3o.input` 模块提供了更底层的接口来处理键盘和鼠标输入。
@@ -113,7 +186,7 @@ for wc in input.listen(move=0):
 ```
 
 `input.ALT` 是仅鼠标可用的, 因为 `ALT + Key` 总是会响应系统快捷键.
-```py
+```python
 from oy3o.terminal import curses
 import oy3o.input as input
 
@@ -156,12 +229,13 @@ from oy3o import Task, Timer, throttle, debounce, subscribe, members, template #
 *   **`Task(func: Callable, ...)`**: 包装函数调用，以支持同步 (`.do()`)、线程 (`.threading()`) 或异常处理 (`.catch()`) 执行。通过 `.do()` 中的 `asyncio.run` 处理异步函数。请参阅 `_.py` 中的代码示例。
 *   **`Timer(once: bool, interval: int, function: Callable, ...)`**: 增强版的 `threading.Timer`，支持重复执行 (`once=False`) 并在不重启的情况下更新参数 (`.update()`)。请参阅 `_.py` 中的代码示例。
 *   **`Proxy(target: T, handler: type)`**: 实现代理模式，将属性/项的访问委托给 `handler` 类。请参阅 `_.py` 中的代码示例。
+*   **`List(list)`**: `oy3o.list.List` 是一个可观察的列表。当其内容通过 `append`, `extend`, `insert`, `pop`, `remove`, `clear`, `__setitem__`, `__delitem__` 等方法更改时，它会触发 "update" 事件。`Flow` 和 `View` 组件订阅此事件以自动刷新其显示。
 
 ### 辅助函数与常量 (Helper Functions & Constants)
 
 *   包括类型检查器 (`isIterable`, `isAsync` 等)、一个唯一的 `undefined` 哨兵对象，以及 Numba 类型别名。
 
-*(有关详细实现和文档字符串，请参阅 `src/oy3o/_.py` 中的源代码。)*
+*(有关详细实现和文档字符串，请参阅 `src/oy3o/_.py` 和 `src/oy3o/list.py` 中的源代码。)*
 
 ## 许可证 (License)
 

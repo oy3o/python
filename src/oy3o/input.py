@@ -1,4 +1,3 @@
-from typing import Callable
 from .terminal import curses
 
 CTRL = curses.BUTTON_CTRL
@@ -138,7 +137,6 @@ def listen(
     button=curses.ALL_MOUSE_EVENTS,
     move=curses.REPORT_MOUSE_POSITION,
     excepted=[],
-    before: Callable = None,
 ):
     if getattr(curses, "stdscr", None) == None:
         init()
@@ -151,8 +149,6 @@ def listen(
         curses.stdscr.refresh() # 确保转义码被发送
 
     while _listen:
-        if before:
-            before()
         wc = curses.stdscr.get_wch()
         if wc == curses.KEY_MOUSE:
             _, x, y, _, key = curses.getmouse()
@@ -181,3 +177,4 @@ def listen(
 def stop():
     global _listen
     _listen = False
+    curses.flushinp()

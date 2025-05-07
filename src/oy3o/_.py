@@ -9,6 +9,7 @@ from typing import (
     List,
     Tuple,
     Optional,
+    SupportsIndex,
 )
 from typing_extensions import Annotated
 from inspect import signature, isawaitable
@@ -31,9 +32,12 @@ from functools import wraps, cache, lru_cache, partial as bind
 from deco import concurrent, synchronized
 from abc import ABC as Interface, abstractmethod
 from collections.abc import MutableSequence, MutableSet, MutableMapping
+from collections import UserDict, UserList, UserString
 from time import time, sleep
-import asyncio
+import os
+import sys
 import threading
+import asyncio
 import queue
 
 T = TypeVar("T")
@@ -53,12 +57,14 @@ class undefined:
     def __bool__(self):
         return False
 
+
 def setdefault(o: object, name, default):
     value = getattr(o, name, undefined)
     if value == undefined:
         object.__setattr__(o, name, default)
         return default
     return value
+
 
 def isIterable(o):
     return isinstance(o, Iterable)
@@ -301,7 +307,7 @@ class subscribe(Generic[T]):
             @wraps(klass.__init__)
             def __init__(self, *args, **kwds):
                 super().__init__(*args, **kwds)
-                if not self.eventshub:
+                if getattr(self, "eventshub", undefined) == undefined:
                     self.eventshub = eventshub if single else {}
 
             def trigger(self, event: str, *args):
